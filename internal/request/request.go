@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"sid.tv/internal/request"
+	"log"
 )
 
 type RequestLine struct {
@@ -72,17 +72,16 @@ outer:
 			return 0, ERROR_Request_In_Error_State
 
 		case StateInit:
-			rl, n, err := parseRequestLine(data[:read])
+			rl, n, err := parseRequestLine(data)
 			if err != nil {
 				r.state = StateError
-				return 0, nil
+				return 0, err
 			}
 			if n == 0 {
 				break outer
 			}
 			r.RequestLine = *rl
 			read += n
-
 			r.state = StateDone
 			return read, nil
 
@@ -100,13 +99,14 @@ func newRequest() *Request {
 }
 
 func (r *Request) done() bool {
-	return r.state == StateDone || r.state != StateError
+	return r.state == StateDone && r.state != StateError
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := newRequest()
 	buf := make([]byte, 8)
 	readToIdx := 0
+	//log.Printf("start")
 
 	for !request.done() {
 		n, err := reader.Read(buf[readToIdx:])
@@ -124,8 +124,12 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if err != nil {
 			return nil, err
 		}
+		//	log.Printf("→ Before copy: readToIdx=%d, readN=%d, buf[:readToIdx]=%q\n", readToIdx, readN, buf[:readToIdx])
 		copy(buf, buf[readN:readToIdx])
 		readToIdx -= readN
+		//	log.Printf("→ After  copy: readToIdx=%d, buf[:readToIdx]=%q\n", readToIdx, buf[:readToIdx])
+
 	}
+	// log.Printf("done")
 	return request, nil
 }
