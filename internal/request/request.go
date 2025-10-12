@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"sid.tv/internal/headers"
 )
@@ -131,7 +130,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	request := newRequest()
 	buf := make([]byte, 8)
 	readToIdx := 0
-	log.Printf("start")
+	//log.Printf("start")
 
 	for !request.done() {
 		n, err := reader.Read(buf[readToIdx:])
@@ -153,12 +152,12 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("→ Before copy: readToIdx=%d, readN=%d, buf[:readToIdx]=%q\n", readToIdx, readN, buf[:readToIdx])
+		//log.Printf("→ Before copy: readToIdx=%d, readN=%d, buf[:readToIdx]=%q\n", readToIdx, readN, buf[:readToIdx])
 		copy(buf, buf[readN:readToIdx])
 		readToIdx -= readN
-		log.Printf("→ After  copy: readToIdx=%d, buf[:readToIdx]=%q\n", readToIdx, buf[:readToIdx])
+		//log.Printf("→ After  copy: readToIdx=%d, buf[:readToIdx]=%q\n", readToIdx, buf[:readToIdx])
 
 	}
-	log.Printf("done")
+	//log.Printf("done")
 	return request, nil
 }
