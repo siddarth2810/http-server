@@ -2,9 +2,10 @@ package request
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
+	//"log/slog"
+	"strconv"
 
 	"sid.tv/internal/headers"
 )
@@ -18,7 +19,7 @@ type RequestLine struct {
 type Request struct {
 	RequestLine RequestLine
 	Headers     *headers.Headers
-	Body        []byte
+	Body        string
 	state       parserState
 }
 
@@ -34,7 +35,21 @@ const (
 	StateDone    parserState = "done"
 	StateError   parserState = "error"
 	StateHeaders parserState = "headers"
+	StateBody    parserState = "body"
 )
+
+// looks up header map and get the value
+func getInt(h *headers.Headers, name string, defaultValue int) int {
+	valueStr, exists := h.Get(name)
+	if !exists {
+		return defaultValue
+	}
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return defaultValue
+	}
+	return value
+}
 
 func parseRequestLine(b []byte) (*RequestLine, int, error) {
 	idx := bytes.Index(b, SEPERATOR)
@@ -66,12 +81,21 @@ func parseRequestLine(b []byte) (*RequestLine, int, error) {
 
 }
 
+// TODO: chunked enoding
+func (r *Request) hasBody() bool {
+	length := getInt(r.Headers, "content-length", 0)
+	return length > 0
+}
+
 func (r *Request) parse(data []byte) (int, error) {
 	read := 0
 
-outer:
+dance:
 	for {
 		currentData := data[read:]
+		if len(currentData) == 0 {
+			break dance
+		}
 		switch r.state {
 		case StateError:
 			return 0, ERROR_Request_In_Error_State
@@ -83,7 +107,7 @@ outer:
 				return 0, err
 			}
 			if n == 0 {
-				break outer
+				break dance
 			}
 			r.RequestLine = *rl
 			read += n
@@ -93,21 +117,45 @@ outer:
 		case StateHeaders:
 			n, done, err := r.Headers.Parse(currentData)
 			if err != nil {
+				r.state = StateError
 				return n, err
 			}
 			read += n
 
+			//log.Println("headers parsed is: ", string(currentData[:n]))
+			//log.Println("what is done ? ", done)
+
 			if n == 0 {
-				break outer
+				break dance
 			}
 
 			if done {
+				if r.hasBody() {
+					r.state = StateBody
+					//return read, nil //go to body
+				} else {
+					r.state = StateDone
+				}
+			}
+
+			//log.Println("go to body ? ", done)
+
+		case StateBody:
+			contentLength := getInt(r.Headers, "content-length", 0)
+			if contentLength == 0 {
+				panic("chunked not implemented")
+			}
+
+			remaining := min(contentLength-len(r.Body), len(currentData))
+			r.Body += string(currentData[:remaining])
+			read += remaining
+
+			if len(r.Body) == contentLength {
 				r.state = StateDone
-				return read, nil
 			}
 
 		case StateDone:
-			break outer
+			break dance
 		default:
 			panic("Oh yea we are bad programmers")
 		}
@@ -119,6 +167,7 @@ func newRequest() *Request {
 	return &Request{
 		state:   StateInit,
 		Headers: headers.NewHeaders(),
+		Body:    "",
 	}
 }
 
@@ -133,12 +182,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	//log.Printf("start")
 
 	for !request.done() {
+		//slog.Info("RequestFromReader", "state", request.state)
 		n, err := reader.Read(buf[readToIdx:])
+
 		if err != nil {
-			if errors.Is(io.EOF, err) {
-                request.done()
-				break
-			}
 			return nil, err
 		}
 		readToIdx += n
