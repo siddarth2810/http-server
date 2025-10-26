@@ -28,10 +28,11 @@ func main() {
 		fmt.Printf("- Method: %s\n", r.RequestLine.Method)
 		fmt.Printf("- Target: %s\n", r.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", r.RequestLine.HttpVersion)
-        fmt.Printf("Headers:\n")// TODO: Headers below wont get printed when this line is removed
+		fmt.Printf("Headers:\n") // TODO: Headers below wont get printed when this line is removed
 		r.Headers.ForEach(func(n, v string) {
 			fmt.Printf("- %s: %s\n", n, v)
 		})
-
+		fmt.Printf("Body:\n")
+		fmt.Printf("%s\n", r.Body)
 	}
 }
