@@ -63,7 +63,7 @@ const port = 42069
 func toStr(bytes []byte) string {
 	out := ""
 	for _, b := range bytes {
-		out += fmt.Sprintf("%02x",b )
+		out += fmt.Sprintf("%02x", b)
 	}
 	return out
 }
@@ -71,7 +71,7 @@ func toStr(bytes []byte) string {
 func main() {
 
 	s, err := server.Serve(port, func(w *response.Writer, req *request.Request) {
-		h:= response.GetDefaultHeaders(0)
+		h := response.GetDefaultHeaders(0)
 		body := respond200()
 		status := response.StatusOK
 
@@ -100,8 +100,8 @@ func main() {
 				h.Delete("Content-Length")
 				h.Set("Transfer-Encoding", "chunked")
 				h.Replace("Content-Type", "text/plain")
-				h.Set("Trailer",  "X-Content-SHA256")
-				h.Set("Trailer",  "X-Content-Length")
+				h.Set("Trailer", "X-Content-SHA256")
+				h.Set("Trailer", "X-Content-Length")
 				w.WriteHeaders(*h)
 
 				fullbody := []byte{}
@@ -125,6 +125,14 @@ func main() {
 
 				return
 			}
+		case "/video":
+			f, _ := os.ReadFile("assets/vim.mp4")
+			h.Replace("Content-Type", "video/mp4")
+			h.Replace("Content-Length", fmt.Sprintf("%d", len(f)))
+
+			w.WriteStatusLine(response.StatusOK)
+			w.WriteHeaders(*h)
+			w.WriteBody(f)
 
 		default:
 			h.Replace("Content-Length", fmt.Sprintf("%d", len(body)))
